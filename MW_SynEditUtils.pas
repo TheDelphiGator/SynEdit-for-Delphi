@@ -115,8 +115,9 @@ end;
 
 // ==============================================================================
 // Edit the Options config of the passed TSynEdit component in a dialog form.
-// Will autosave to the .OPT file if AAutoSave is NOT specified or set to FALSE
-// Settings can also be saved manually via method SaveToFile
+// Will autosave to the .OPT file if AAutoSave is NOT specified or set to TRUE
+// If set to FALSE then no save occurs and the user can save manually via 
+// method SaveToFile
 // ==============================================================================
 
 class procedure TSynEditOptionsConfig.DoEditConfig(ASynEdit : TSynEdit;
