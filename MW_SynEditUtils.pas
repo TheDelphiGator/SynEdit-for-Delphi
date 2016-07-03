@@ -55,6 +55,7 @@ type
     TSynEditKeyUtils = class(TObject)
     public
       class procedure GetKeystrokesHelp(ASynEdit : TSynEdit; AList : TStrings);
+      class function GetKeyShortcut(ASynEdit : TSynEdit; AKeyValueEC : integer) : string;
     end;
 
 // -------------------------------------------------------------------------------------------------
@@ -171,6 +172,31 @@ begin
   finally
     AList.EndUpdate;
   end;
+end;
+
+
+// ==========================================================================================
+// Return the shortcut Key Description of a passed Key Command as specified as constants
+// in SynEdit unit SysEditKeyCmds.
+// eg. TSynEditKeyUtils.GetKeyShortcut(MySynEdit,ecSelWordRight);
+//     could return "Shift+Ctrl+Right"
+// Will return NULL string if key command is NOT assigned.
+// ==========================================================================================
+
+class function TSynEditKeyUtils.GetKeyShortcut(ASynEdit : TSynEdit; AKeyValueEC : integer) : string;
+var sResult,sText : string;
+    iIdx,iPos : integer;
+begin
+  sResult := '';
+  iIdx := ASynEdit.Keystrokes.FindCommand(AKeyValueEC);
+
+  if iIdx >= 0 then begin
+    sText := ASynEdit.Keystrokes.Items[iIdx].DisplayName;
+    iPos := pos('-',sText);
+    sResult := trim(copy(sText,iPos + 1));
+  end;
+
+  Result := sResult;
 end;
 
 {$ENDREGION}
