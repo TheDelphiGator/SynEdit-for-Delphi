@@ -18,7 +18,13 @@ interface
 // This class is a nice and simple way to manage this functionality without having to dig into
 // the code each time to remeber how to do it.
 // All methods are static and can be called without creating and instance of the class.
-// eg. TSynEditOptions.LoadFromFile(AMySynEditObj);
+// eg. TSynEditOptionsConfig.LoadFromFile(AMySynEditObj);
+//
+// TSynEditKeyUtils Class
+// ----------------------
+// Utilities to assist in Keytroke processing and information text.
+// All methods are static and can be called without creating and instance of the class.
+// eg. TSynEditKeyUtils.GetKeystrokesHelp(AMySynEditObj,ATextList);
 //
 // Code is for Delphi 2010 and upward.
 // Multi Platform additions need to be added for Free Pascal, Lazarus, Linux etc.
@@ -39,6 +45,16 @@ type
       class procedure LoadFromFile(ASynEdit : TSynEdit);
       class procedure SaveToFile(ASynEdit : TSynEdit);
       class procedure DoEditConfig(ASynEdit : TSynEdit; AAutoSave : boolean = true);
+    end;
+
+    // ================================================================================
+    // Class with static methods to facilitate processing and getting readable text
+    // information about SynEdit Keystrokes.
+    // ================================================================================
+
+    TSynEditKeyUtils = class(TObject)
+    public
+      class procedure GetKeystrokesHelp(ASynEdit : TSynEdit; AList : TStrings);
     end;
 
 // -------------------------------------------------------------------------------------------------
@@ -124,4 +140,38 @@ end;
 
 {$ENDREGION}
 
+{$REGION 'TSynEditKeyUtils Class'}
+
+// =======================================================
+// Load keystroke help text into a TStrings object.
+// Each line is a key.value pair seperated by "="
+// eg. "Delete Last Word=Ctrl+BkSp"
+// =======================================================
+
+class procedure TSynEditKeyUtils.GetKeystrokesHelp(ASynEdit : TSynEdit; AList : TStrings);
+var i,ii,iPos,iLen : integer;
+    sText,sKey,sName : string;
+begin
+  AList.Clear;
+  AList.BeginUpdate;
+
+  try
+    for i := 0 to ASynEdit.Keystrokes.Count - 1 do begin
+      sText := ASynEdit.Keystrokes.Items[i].DisplayName;
+      iPos := pos('-',sText);
+      sName := trim(copy(sText,iPos + 1));
+      sKey := trim(copy(sText,3,iPos - 3));
+      // Expand "Sel" to "Select"
+      if pos('Select',sKey) = 0 then sKey := StringReplace(sKey,'Sel','Select',[rfReplaceAll]);
+      // Break into whole words
+      iLen := length(sKey);
+      for ii := iLen downto 2 do if sKey[ii] = Upcase(sKey[ii]) then Insert(' ',sKey,ii);
+      AList.Add(sKey + '=' + sName);
+    end;
+  finally
+    AList.EndUpdate;
+  end;
+end;
+
+{$ENDREGION}
 end.
