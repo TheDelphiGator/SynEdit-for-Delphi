@@ -33,12 +33,17 @@ interface
 // Cut,Copy,Paste,Select All,Undo,Redo and Goto. The dropdown caption displays the correct
 // shortcut descriptions as set vi the SynEdit options dialog.
 //
+// TSynEditStatusBar Class
+// -----------------------
+// Generic Status bar handler class for SynEdit incorporating Row/Line number, Insert and Modified
+// flags. Attaches to passed StnEdit object.
+//
 // Code is for Delphi 2010 and upward.
 // Multi Platform additions need to be added for Free Pascal, Lazarus, Linux etc.
 // =================================================================================================
 
-uses Forms, Classes, SysUtils, ClipBrd, Menus, StdCtrls, Controls, SynEdit, SynEditOptionsDialog,
-     SynEditKeyCmds;
+uses Forms, Classes, SysUtils, ClipBrd, Menus, StdCtrls, Controls, ComCtrls, SynEdit,
+     SynEditOptionsDialog, SynEditKeyCmds;
 
 type
     // ================================================================================
@@ -78,15 +83,15 @@ type
       FSynEdit : TSynEdit;
       FPopup : TPopupmenu;
       FGotoShortCut : string;
-      procedure _EventPopup(ASender: TObject);
-      procedure _EventCut(ASender: TObject);
-      procedure _EventCopy(ASender: TObject);
-      procedure _EventPaste(ASender: TObject);
-      procedure _EventSelectAll(ASender: TObject);
-      procedure _EventUndo(ASender: TObject);
-      procedure _EventRedo(ASender: TObject);
-      procedure _EventKeyPress(ASender: TObject; var AKey: Char);
-      procedure _EventGotoRow(ASender: TObject);
+      procedure _EventPopup(ASender : TObject);
+      procedure _EventCut(ASender : TObject);
+      procedure _EventCopy(ASender : TObject);
+      procedure _EventPaste(ASender : TObject);
+      procedure _EventSelectAll(ASender : TObject);
+      procedure _EventUndo(ASender : TObject);
+      procedure _EventRedo(ASender : TObject);
+      procedure _EventKeyPress(ASender : TObject; var AKey : Char);
+      procedure _EventGotoRow(ASender : TObject);
       procedure _BuildPopup;
 
     public
@@ -94,6 +99,24 @@ type
       destructor Destroy; override;
       property GotoShortCut : string read FGotoShortCut write FGotoShortCut;
     end;
+
+   // =============================================================================
+   // Generic Status bar handler class for SynEdit incorporating Row/Line number,
+   // Insert and Modified flags. Attaches to passed StnEdit object.
+   // =============================================================================
+
+   TSynEditStatusBar = class(TObject)
+   private
+     FSynEdit : TSynEdit;
+     FStatusBar : TStatusBar;
+     FIsModified : boolean;
+     procedure _EventStatusChange(ASender : TObject; AChanges : TSynStatusChanges);
+     procedure _ConfigureStatusBar;
+
+   public
+     constructor Create(ASynEdit : TSynEdit; AStatusBar : TStatusBar);
+     destructor Destroy; override;
+   end;
 
 // -------------------------------------------------------------------------------------------------
 implementation
@@ -261,6 +284,7 @@ destructor TSynEditAutoPopup.Destroy;
 begin
   FSynEdit.PopupMenu := nil;
   FreeAndNil(FPopup);
+  FSynEdit := nil;
 
   inherited Destroy;
 end;
@@ -321,7 +345,7 @@ end;
 // enabled/disabled states
 // ======================================================================
 
-procedure TSynEditAutoPopup._EventPopup(ASender: TObject);
+procedure TSynEditAutoPopup._EventPopup(ASender : TObject);
 var oItem : TMenuItem;
 begin
   // Refresh captions in case shortcuts changed by options editor and set enabled/disabled state
@@ -346,32 +370,32 @@ end;
 // Popupmenu Item Event actions
 // ==================================
 
-procedure TSynEditAutoPopup._EventCut(ASender: TObject);
+procedure TSynEditAutoPopup._EventCut(ASender : TObject);
 begin
   FSynEdit.CutToClipboard;
 end;
 
-procedure TSynEditAutoPopup._EventCopy(ASender: TObject);
+procedure TSynEditAutoPopup._EventCopy(ASender : TObject);
 begin
   FSynEdit.CopyToClipboard;
 end;
 
-procedure TSynEditAutoPopup._EventPaste(ASender: TObject);
+procedure TSynEditAutoPopup._EventPaste(ASender : TObject);
 begin
   FSynEdit.PasteFromClipboard;
 end;
 
-procedure TSynEditAutoPopup._EventSelectAll(ASender: TObject);
+procedure TSynEditAutoPopup._EventSelectAll(ASender : TObject);
 begin
   FSynEdit.SelectAll;
 end;
 
-procedure TSynEditAutoPopup._EventUndo(ASender: TObject);
+procedure TSynEditAutoPopup._EventUndo(ASender : TObject);
 begin
   FSynEdit.Undo;
 end;
 
-procedure TSynEditAutoPopup._EventRedo(ASender: TObject);
+procedure TSynEditAutoPopup._EventRedo(ASender : TObject);
 begin
   FSynEdit.Redo;
 end;
@@ -380,7 +404,7 @@ end;
 // Only allow numeric characters 0..9,BkSpace and Movement keys
 // ================================================================
 
-procedure TSynEditAutoPopup._EventKeyPress(ASender: TObject; var AKey: Char);
+procedure TSynEditAutoPopup._EventKeyPress(ASender : TObject; var AKey : Char);
 begin
   if ((AKey < '0') or (AKey > '9')) and (AKey <> #8) then AKey := #0;
 end;
@@ -429,6 +453,91 @@ begin
   FreeAndNil(oForm);
 end;
 
+{$ENDREGION}
+
+{$REGION 'TSynEditStatusBar Class'}
+
+// ===============================
+// Constructors and Destructors
+// ===============================
+
+constructor TSynEditStatusBar.Create(ASynEdit : TSynEdit; AStatusBar : TStatusBar);
+begin
+  inherited Create;
+
+  FIsModified := false;
+  FSynEdit := ASynEdit;
+  FStatusBar := AStatusBar;
+  _ConfigureStatusBar;
+  _EventStatusChange(nil,[]);
+  FSynEdit.OnStatusChange := _EventStatusChange;
+end;
+
+destructor TSynEditStatusBar.Destroy;
+begin
+  FSynEdit.OnStatusChange := nil;
+  FStatusBar := nil;
+  FSynEdit := nil;
+
+  inherited Destroy;
+end;
+
+// ========================================================
+// Configire StatusBar
+// NOTE: Will destroy any current panels in the bar
+// ========================================================
+
+procedure TSynEditStatusBar._ConfigureStatusBar;
+var oStatusPanel : TStatusPanel;
+begin
+  // Configure the status bar
+  FStatusBar.SimplePanel := false;
+  FStatusBar.Panels.Clear;
+  // Line number panel
+  oStatusPanel := FStatusbar.Panels.Add;
+  oStatusPanel.Text := 'Line:';
+  oStatusPanel.Width := 70;
+  // Row number panel
+  oStatusPanel := FStatusbar.Panels.Add;
+  oStatusPanel.Text := 'Row:';
+  oStatusPanel.Width := 70;
+  // Insert mode panel
+  oStatusPanel := FStatusbar.Panels.Add;
+  oStatusPanel.Width := 70;
+  oStatusPanel.Alignment := taCenter;
+  // Modified flag panel
+  oStatusPanel := FStatusbar.Panels.Add;
+  oStatusPanel.Width := 70;
+  oStatusPanel.Alignment := taCenter;
+  // Padding panel
+  oStatusPanel := FStatusbar.Panels.Add;
+  oStatusPanel.Width := 5000;
+end;
+
+// ======================================================================
+// Event handle for status changes in SynEdit. Update passed StatusBar
+// ======================================================================
+
+procedure TSynEditStatusBar._EventStatusChange(ASender : TObject; AChanges : TSynStatusChanges);
+begin
+  if AChanges * [scAll, scCaretX, scCaretY] <> [] then begin
+    FStatusBar.Panels[0].Text := Format('Line: %7d',[FSynEdit.CaretY]);
+    FStatusBar.Panels[1].Text := Format('Col: %4d',[FSynEdit.CaretX]);
+  end;
+
+  if scModified in AChanges then FIsModified := true;
+
+  if FIsModified then
+    FStatusBar.Panels[3].Text := 'Modified'
+  else
+    FStatusBar.Panels[3].Text := '';
+
+  if FSynEdit.InsertMode then
+    FStatusBar.Panels[2].Text := 'Insert'
+  else
+    FStatusBar.Panels[2].Text := 'Overwrite';
+end;
 
 {$ENDREGION}
+
 end.
