@@ -30,14 +30,15 @@ interface
 // TSynEditAutoPopup Class
 // -----------------------
 // Class that attaches and controls a Popup menu for the passed SynEdit. Dropdown includes
-// Cut,Copy,Paste,Select All,Undo and Redo. The dropdown caption displays the correct shortcut
-// descriptions as set vi the SynEdit options dialog.
+// Cut,Copy,Paste,Select All,Undo,Redo and Goto. The dropdown caption displays the correct
+// shortcut descriptions as set vi the SynEdit options dialog.
 //
 // Code is for Delphi 2010 and upward.
 // Multi Platform additions need to be added for Free Pascal, Lazarus, Linux etc.
 // =================================================================================================
 
-uses Classes, SysUtils, ClipBrd, Menus, SynEdit, SynEditOptionsDialog, SynEditKeyCmds;
+uses Forms, Classes, SysUtils, ClipBrd, Menus, StdCtrls, Controls, SynEdit, SynEditOptionsDialog,
+     SynEditKeyCmds;
 
 type
     // ================================================================================
@@ -67,14 +68,16 @@ type
 
     // ===============================================================================
     // Class that attaches and controls a Popup menu for the passed SynEdit. Dropdown
-    // includes Cut,Copy,Paste,Select All,Undo and Redo. The dropdown caption displays
-    // the correct shortcutdescriptions as set vi the SynEdit options dialog.
+    // includes Cut,Copy,Paste,Select All,Undo,Redo and Goto. The dropdown caption
+    // displays the correct shortcutdescriptions as set vi the SynEdit options
+    // dialog. NOTE: GotoRow
     // ===============================================================================
 
     TSynEditAutoPopup = class(TObject)
     private
       FSynEdit : TSynEdit;
       FPopup : TPopupmenu;
+      FGotoShortCut : string;
       procedure _EventPopup(ASender: TObject);
       procedure _EventCut(ASender: TObject);
       procedure _EventCopy(ASender: TObject);
@@ -82,11 +85,14 @@ type
       procedure _EventSelectAll(ASender: TObject);
       procedure _EventUndo(ASender: TObject);
       procedure _EventRedo(ASender: TObject);
+      procedure _EventKeyPress(ASender: TObject; var AKey: Char);
+      procedure _EventGotoRow(ASender: TObject);
       procedure _BuildPopup;
 
     public
-      constructor Create(ASynEdit : TSynEdit);
+      constructor Create(ASynEdit : TSynEdit; const AGotoShortCut : string = 'CTRL+G');
       destructor Destroy; override;
+      property GotoShortCut : string read FGotoShortCut write FGotoShortCut;
     end;
 
 // -------------------------------------------------------------------------------------------------
@@ -235,10 +241,15 @@ end;
 
 {$REGION 'TSynEditAutoPopup Class'}
 
-constructor TSynEditAutoPopup.Create(ASynEdit : TSynEdit);
+// =================================
+// Constructors and Destructors
+// =================================
+
+constructor TSynEditAutoPopup.Create(ASynEdit : TSynEdit; const AGotoShortCut : string = 'CTRL+G');
 begin
   inherited Create;
 
+  FGotoShortCut := AGotoShortCut;
   FSynEdit := ASynEdit;
   FPopup := TPopupmenu.Create(nil);
   _BuildPopup;
@@ -292,8 +303,14 @@ begin
   FPopup.Items.Add(oItem);
 
   oItem := TMenuItem.Create(FPopup);
-  oItem.Caption := 'Undo';
+  oItem.Caption := 'Redo';
   oItem.OnClick := _EventRedo;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Goto Row';
+  oItem.OnClick := _EventGotoRow;
+  oItem.ShortCut := TextToShortCut(FGotoShortCut);
   FPopup.Items.Add(oItem);
 
   FPopup.OnPopup := _EventPopup;
@@ -326,7 +343,7 @@ begin
 end;
 
 // ==================================
-// Popupmenu item Event actions
+// Popupmenu Item Event actions
 // ==================================
 
 procedure TSynEditAutoPopup._EventCut(ASender: TObject);
@@ -358,6 +375,60 @@ procedure TSynEditAutoPopup._EventRedo(ASender: TObject);
 begin
   FSynEdit.Redo;
 end;
+
+// ================================================================
+// Only allow numeric characters 0..9,BkSpace and Movement keys
+// ================================================================
+
+procedure TSynEditAutoPopup._EventKeyPress(ASender: TObject; var AKey: Char);
+begin
+  if ((AKey < '0') or (AKey > '9')) and (AKey <> #8) then AKey := #0;
+end;
+
+// ====================
+// Goto Row Number
+// ====================
+
+procedure TSynEditAutoPopup._EventGotoRow(ASender : TObject);
+var iRow : integer;
+    oForm : TForm;
+    oEdit : TEdit;
+    oButton : TButton;
+begin
+  // Construct a Form
+  oForm := TForm.Create(nil);
+  oForm.BringToFront;
+  oForm.Position := poScreenCenter;
+  oForm.BorderStyle := bsDialog;
+  oForm.BorderIcons := [biSystemMenu];
+  oForm.Caption := 'Goto Row';
+  oForm.Height := 80;
+  oForm.Width := 100;
+  // Construct an Edit box with numeric chars only
+  oEdit := TEdit.Create(oForm);
+  oEdit.Parent := oForm;
+  oEdit.OnKeyPress := _EventKeyPress;
+  oEdit.AlignWithMargins := true;
+  oEdit.MaxLength := FSynEdit.Gutter.DigitCount;
+  oEdit.Align := alTop;
+  // Construct OK Button
+  oButton := TButton.Create(oForm);
+  oButton.Parent := oForm;
+  oButton.Caption := 'OK';
+  oButton.ModalResult := mrOk;
+  oButton.Default := true;
+  oButton.Align := alBottom;
+
+  if oForm.ShowModal = mrOk then begin
+    FSynEdit.SetFocus;
+    iRow := StrToIntDef(oEdit.Text,0) - FSynEdit.Gutter.LineNumberStart + 1;
+    FSynEdit.CaretY := iRow;
+    FSynEdit.CaretX := 0;
+  end;
+
+  FreeAndNil(oForm);
+end;
+
 
 {$ENDREGION}
 end.
