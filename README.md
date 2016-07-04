@@ -7,6 +7,6 @@ The implementaion code is a great example of self documenting pascal code, but f
 
 NOTE : All of my classes and units are designed for DELPHI only. I know all of the SynEdit objects cater for Cross Platform Compilers, but my platform of choice is MS-Windows. It should however not be a "Train-Smash" for anyone wanting to convert my code to "Multi-Platform" and I am available for queries on any potential problems that arise here. I do not have access to all the available platforms and cannot test and debug, hence the limitation of my examples without conditional compiles for platforms other than Delphi. 
 
-The first Class implemented is TSynEditOptionsConfig which allows editor option editing and save/load as "Black-Box Class" functionality.
-
-Working of class TSynEditKeyUtils which will assist in the processing and getting information about the SynEdit keystrokes.
+Added Class TSynEditOptionsConfig which allows editor option editing and save/load as "Black-Box Class" functionality.
+Added Class TSynEditKeyUtils which will assist in the processing and getting information about the SynEdit keystrokes.
+Added Class TSynEditAutoPopup which attaches an auto popup to SynEdit catering for Cut,Copy,Paste,Select All,Undo and Redo.
