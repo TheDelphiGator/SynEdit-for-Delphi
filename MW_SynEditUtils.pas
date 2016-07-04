@@ -9,7 +9,7 @@ interface
 // SynEditUtils
 // ------------
 // Enhancements and helper classes for SynEdit components.
-// SynEdit version used v 1.32.1 2012/19/09 10:50:00 CodehunterWorks Exp
+// SynEdit version used v2.0.8
 //
 // TSynEditOptionsConfig Class
 // ---------------------------
