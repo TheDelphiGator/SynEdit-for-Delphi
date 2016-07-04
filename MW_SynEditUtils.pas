@@ -17,7 +17,8 @@ interface
 // Needed to dig into code to find out how the mechanism worked.
 // This class is a nice and simple way to manage this functionality without having to dig into
 // the code each time to remeber how to do it.
-// All methods are static and can be called without creating and instance of the class.
+// Most methods are static (class methods) and can be called without creating and instance of
+// the class.
 // eg. TSynEditOptionsConfig.LoadFromFile(AMySynEditObj);
 //
 // TSynEditKeyUtils Class
@@ -26,17 +27,23 @@ interface
 // All methods are static and can be called without creating and instance of the class.
 // eg. TSynEditKeyUtils.GetKeystrokesHelp(AMySynEditObj,ATextList);
 //
+// TSynEditAutoPopup Class
+// -----------------------
+// Class that attaches and controls a Popup menu for the passed SynEdit. Dropdown includes
+// Cut,Copy,Paste,Select All,Undo and Redo. The dropdown caption displays the correct shortcut
+// descriptions as set vi the SynEdit options dialog.
+//
 // Code is for Delphi 2010 and upward.
 // Multi Platform additions need to be added for Free Pascal, Lazarus, Linux etc.
 // =================================================================================================
 
-uses Classes, SysUtils, SynEdit, SynEditOptionsDialog;
+uses Classes, SysUtils, ClipBrd, Menus, SynEdit, SynEditOptionsDialog, SynEditKeyCmds;
 
 type
     // ================================================================================
     // Class with static methods to facilitate loading, editing and saving SynEdit
     // Options from and to .opt file. Method Edit wil automatically save to the .opt
-    // file when closed unless parameter "AAutoSave=false" in which case the use will
+    // file when closed unless parameter "AAutoSave=false" in which case the user will
     // use the SaveToFile method.
     // ================================================================================
 
@@ -56,6 +63,30 @@ type
     public
       class procedure GetKeystrokesHelp(ASynEdit : TSynEdit; AList : TStrings);
       class function GetKeyShortcut(ASynEdit : TSynEdit; AKeyValueEC : integer) : string;
+    end;
+
+    // ===============================================================================
+    // Class that attaches and controls a Popup menu for the passed SynEdit. Dropdown
+    // includes Cut,Copy,Paste,Select All,Undo and Redo. The dropdown caption displays
+    // the correct shortcutdescriptions as set vi the SynEdit options dialog.
+    // ===============================================================================
+
+    TSynEditAutoPopup = class(TObject)
+    private
+      FSynEdit : TSynEdit;
+      FPopup : TPopupmenu;
+      procedure _EventPopup(ASender: TObject);
+      procedure _EventCut(ASender: TObject);
+      procedure _EventCopy(ASender: TObject);
+      procedure _EventPaste(ASender: TObject);
+      procedure _EventSelectAll(ASender: TObject);
+      procedure _EventUndo(ASender: TObject);
+      procedure _EventRedo(ASender: TObject);
+      procedure _BuildPopup;
+
+    public
+      constructor Create(ASynEdit : TSynEdit);
+      destructor Destroy; override;
     end;
 
 // -------------------------------------------------------------------------------------------------
@@ -116,7 +147,7 @@ end;
 // ==============================================================================
 // Edit the Options config of the passed TSynEdit component in a dialog form.
 // Will autosave to the .OPT file if AAutoSave is NOT specified or set to TRUE
-// If set to FALSE then no save occurs and the user can save manually via 
+// If set to FALSE then no save occurs and the user can save manually via
 // method SaveToFile
 // ==============================================================================
 
@@ -198,6 +229,134 @@ begin
   end;
 
   Result := sResult;
+end;
+
+{$ENDREGION}
+
+{$REGION 'TSynEditAutoPopup Class'}
+
+constructor TSynEditAutoPopup.Create(ASynEdit : TSynEdit);
+begin
+  inherited Create;
+
+  FSynEdit := ASynEdit;
+  FPopup := TPopupmenu.Create(nil);
+  _BuildPopup;
+  // Attach Popup menu to SynEdit
+  FSynEdit.PopupMenu := FPopup;
+end;
+
+destructor TSynEditAutoPopup.Destroy;
+begin
+  FSynEdit.PopupMenu := nil;
+  FreeAndNil(FPopup);
+
+  inherited Destroy;
+end;
+
+// =====================================================================
+// Dynamically build the auto popup and assign events to the items
+// and before popup
+// =====================================================================
+
+procedure TSynEditAutoPopup._BuildPopup;
+var oItem : TMenuItem;
+begin
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Cut';
+  oItem.OnClick := _EventCut;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Copy';
+  oItem.OnClick := _EventCopy;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Paste';
+  oItem.OnClick := _EventPaste;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Select All';
+  oItem.OnClick := _EventSelectAll;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := '-';
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Undo';
+  oItem.OnClick := _EventUndo;
+  FPopup.Items.Add(oItem);
+
+  oItem := TMenuItem.Create(FPopup);
+  oItem.Caption := 'Undo';
+  oItem.OnClick := _EventRedo;
+  FPopup.Items.Add(oItem);
+
+  FPopup.OnPopup := _EventPopup;
+end;
+
+// ======================================================================
+// Respond to the before Popup event and refresh captions and item
+// enabled/disabled states
+// ======================================================================
+
+procedure TSynEditAutoPopup._EventPopup(ASender: TObject);
+var oItem : TMenuItem;
+begin
+  // Refresh captions in case shortcuts changed by options editor and set enabled/disabled state
+  oItem := FPopup.Items[0]; // Cut function
+  oItem.Caption := 'Cut' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecCut);
+  oItem.Enabled := FSynEdit.SelLength <> 0;
+  oItem := FPopup.Items[1]; // Copy function
+  oItem.Caption := 'Copy' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecCopy);
+  oItem.Enabled := FSynEdit.SelLength <> 0;
+  oItem := FPopup.Items[2]; // Paste function
+  oItem.Caption := 'Paste' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecPaste);
+  oItem.Enabled := Clipboard.AsText <> '';
+  oItem := FPopup.Items[3]; // Select All function
+  oItem.Caption := 'Select All' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecSelectAll);
+  oItem := FPopup.Items[5]; // Undo function
+  oItem.Caption := 'Undo' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecUndo);
+  oItem := FPopup.Items[6]; // Redo function
+  oItem.Caption := 'Redo' + char(9) + TSynEditKeyUtils.GetKeyShortcut(FSynEdit,ecRedo);
+end;
+
+// ==================================
+// Popupmenu item Event actions
+// ==================================
+
+procedure TSynEditAutoPopup._EventCut(ASender: TObject);
+begin
+  FSynEdit.CutToClipboard;
+end;
+
+procedure TSynEditAutoPopup._EventCopy(ASender: TObject);
+begin
+  FSynEdit.CopyToClipboard;
+end;
+
+procedure TSynEditAutoPopup._EventPaste(ASender: TObject);
+begin
+  FSynEdit.PasteFromClipboard;
+end;
+
+procedure TSynEditAutoPopup._EventSelectAll(ASender: TObject);
+begin
+  FSynEdit.SelectAll;
+end;
+
+procedure TSynEditAutoPopup._EventUndo(ASender: TObject);
+begin
+  FSynEdit.Undo;
+end;
+
+procedure TSynEditAutoPopup._EventRedo(ASender: TObject);
+begin
+  FSynEdit.Redo;
 end;
 
 {$ENDREGION}
