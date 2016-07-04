@@ -42,7 +42,7 @@ interface
 // Multi Platform additions need to be added for Free Pascal, Lazarus, Linux etc.
 // =================================================================================================
 
-uses Forms, Classes, SysUtils, ClipBrd, Menus, StdCtrls, Controls, ComCtrls, SynEdit,
+uses Forms, Classes, Windows, SysUtils, ClipBrd, Menus, StdCtrls, Controls, ComCtrls, SynEdit,
      SynEditOptionsDialog, SynEditKeyCmds;
 
 type
@@ -428,6 +428,12 @@ begin
   oForm.Caption := 'Goto Row';
   oForm.Height := 80;
   oForm.Width := 100;
+  // Z Order fixes
+  SetWindowLong(oForm.Handle,GWL_EXSTYLE,
+                GetWindowLong(oForm.Handle,GWL_EXSTYLE or WS_EX_APPWINDOW or WS_EX_TOPMOST));
+  SetWindowLong(oForm.Handle,GWL_HWNDPARENT,GetDeskTopWindow);
+  oForm.FormStyle := fsStayOnTop;
+  oForm.BringToFront;
   // Construct an Edit box with numeric chars only
   oEdit := TEdit.Create(oForm);
   oEdit.Parent := oForm;
