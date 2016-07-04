@@ -12,3 +12,5 @@ NOTE : All of my classes and units are designed for DELPHI only. I know all of t
 *Added Class TSynEditKeyUtils which will assist in the processing and getting information about the SynEdit keystrokes.
 
 *Added Class TSynEditAutoPopup which attaches an auto popup to SynEdit catering for Cut,Copy,Paste,Select All,Undo,Redo and Goto Row dialog box. Goto Row shortcut configurable in constryctor, CTRL+G is default. Popup displays shortcut text for all menu items.
+
+*Added Class TSynEditStatusBar which is a Generic Status Bar event handler class for SynEdit incorporating Row/Line number, Insert Mode and Modified Flag. Attaches to passed SynEdit object.
