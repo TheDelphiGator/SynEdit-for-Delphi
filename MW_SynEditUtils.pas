@@ -133,6 +133,7 @@ var sOptFile : string;
     oOpt : TSynEditorOptionsContainer;
     oStream : TFileStream;
 begin
+  oStream := nil;
   sOptFile := ChangeFileExt(ParamStr(0),'.opt');
   oOpt := TSynEditorOptionsContainer.Create(nil);
 
